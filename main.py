@@ -7,10 +7,10 @@ logging.basicConfig(level=logging.INFO)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # App start hotay hi DB connect karo
+    # When the FastAPI server starts, this function will be called to establish a connection to MongoDB.
     await connect_to_mongo()
     yield
-    # App band hotay hi DB disconnect karo
+    # When the FastAPI server is shutting down, this function will be called to close the MongoDB connection gracefully.
     await close_mongo_connection()
 
 app = FastAPI(title="ITVE Donor API", lifespan=lifespan)
