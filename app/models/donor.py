@@ -28,8 +28,8 @@ class DonorSignup(BaseModel):
 
     @field_validator("email")
     @classmethod
-    def normalize_email(cls, value: EmailStr) -> EmailStr:
-        return EmailStr(str(value).lower())
+    def normalize_email(cls, value: EmailStr) -> str:
+        return str(value).lower()
 
     @field_validator("username")
     @classmethod
