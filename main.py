@@ -4,6 +4,7 @@ from app.core.database import connect_to_mongo, close_mongo_connection
 import logging
 
 from app.routers import donors
+from app.routers import hopes
 
 logging.basicConfig(level=logging.INFO)
 
@@ -16,6 +17,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="ITVE Donor API", lifespan=lifespan)
 
 app.include_router(donors.router, prefix="/api")
+app.include_router(hopes.router, prefix="/api/hopes", tags=["Hopes / Donations"])
 
 @app.get("/")
 async def root():
