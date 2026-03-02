@@ -1,7 +1,14 @@
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from app.models.donor import DonorSignup, DonorProfileResponse, DonorUpdateProfile, AchievementPatch
+from app.models.donor import (
+    DonorSignup,
+    DonorProfileResponse,
+    DonorUpdateProfile,
+    AchievementPatch,
+    DeactivateAccountRequest,
+    DeleteAccountRequest,
+)
 from app.core.database import db_instance
 from app.core.security import hash_password, create_access_token, decode_token
 from datetime import datetime, timezone
@@ -54,6 +61,12 @@ async def signup_donor(donor: DonorSignup):
         "donor_class": "Starter",
         "donor_rank": 0,
         "achievements": [],
+        "is_active": True,
+        "is_deleted": False,
+        "deactivated_at": None,
+        "deactivation_reason": None,
+        "deleted_at": None,
+        "deletion_reason": None,
         "created_at": datetime.now(timezone.utc)
     })
 
@@ -175,3 +188,105 @@ async def get_all_donors():
         )
 
     return donors_list
+
+
+# 6. POST /api/donors/account/deactivate
+@router.post("/account/deactivate")
+async def deactivate_donor_account(
+    payload: DeactivateAccountRequest | None = None,
+    current_username: str = Depends(get_current_donor_username),
+):
+    db = db_instance.db
+    if db is None:
+        raise HTTPException(status_code=500, detail="Database connection failed")
+
+    user = await db["donors"].find_one({"username": current_username})
+    if not user or user.get("is_deleted", False):
+        raise HTTPException(status_code=404, detail="Donor not found")
+
+    if user.get("is_active") is False:
+        return {"message": "Account is already deactivated"}
+
+    result = await db["donors"].update_one(
+        {"username": current_username},
+        {
+            "$set": {
+                "is_active": False,
+                "deactivated_at": datetime.now(timezone.utc),
+                "deactivation_reason": payload.reason if payload else None,
+            }
+        },
+    )
+
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Donor not found")
+
+    return {"message": "Account deactivated successfully"}
+
+
+# 7. POST /api/donors/account/activate
+@router.post("/account/activate")
+async def activate_donor_account(
+    current_username: str = Depends(get_current_donor_username),
+):
+    db = db_instance.db
+    if db is None:
+        raise HTTPException(status_code=500, detail="Database connection failed")
+
+    user = await db["donors"].find_one({"username": current_username})
+    if not user or user.get("is_deleted", False):
+        raise HTTPException(status_code=404, detail="Donor not found")
+
+    if user.get("is_active", True):
+        return {"message": "Account is already active"}
+
+    result = await db["donors"].update_one(
+        {"username": current_username},
+        {
+            "$set": {
+                "is_active": True,
+                "deactivated_at": None,
+                "deactivation_reason": None,
+            }
+        },
+    )
+
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Donor not found")
+
+    return {"message": "Account activated successfully"}
+
+
+# 8. DELETE /api/donors/account
+@router.delete("/account")
+async def delete_donor_account(
+    payload: DeleteAccountRequest | None = None,
+    current_username: str = Depends(get_current_donor_username),
+):
+    db = db_instance.db
+    if db is None:
+        raise HTTPException(status_code=500, detail="Database connection failed")
+
+    user = await db["donors"].find_one({"username": current_username})
+    if not user:
+        raise HTTPException(status_code=404, detail="Donor not found")
+
+    if user.get("is_deleted", False):
+        return {"message": "Account is already deleted"}
+
+    result = await db["donors"].update_one(
+        {"username": current_username},
+        {
+            "$set": {
+                "is_deleted": True,
+                "is_active": False,
+                "deleted_at": datetime.now(timezone.utc),
+                "deletion_reason": payload.reason if payload else None,
+            }
+        },
+    )
+
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Donor not found")
+
+    return {"message": "Account deleted successfully"}
