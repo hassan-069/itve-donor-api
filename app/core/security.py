@@ -3,6 +3,8 @@ from typing import Any, Dict, Optional
 import jwt
 from passlib.context import CryptContext
 from app.core.config import settings
+from fastapi import Security, HTTPException, status
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
 # Initialize the password hashing context using the bcrypt algorithm
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -67,3 +69,31 @@ def decode_token(token: str) -> Optional[Dict[str, Any]]:
     except jwt.PyJWTError:
         # Catch all JWT-related errors (expiration, invalid signature)
         return None
+    
+# ==========================================
+# FastAPI Security Dependency for Routes
+# ==========================================
+security_bearer = HTTPBearer()
+
+def get_current_user_id(credentials: HTTPAuthorizationCredentials = Security(security_bearer)) -> str:
+    """
+    Extracts and verifies the JWT token from the Authorization header.
+    Returns the user ID (subject) if valid, otherwise raises a 401 Unauthorized error.
+    """
+    token = credentials.credentials
+    payload = decode_token(token)
+    
+    if not payload:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired authentication token. Please log in again."
+        )
+        
+    user_id = payload.get("sub")
+    if not user_id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token payload invalid. Missing subject."
+        )
+        
+    return user_id
