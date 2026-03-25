@@ -7,6 +7,7 @@ import logging
 from app.routers import donors
 from app.routers import hopes
 from app.routers import schools
+from app.routers import posts
 
 logging.basicConfig(level=logging.INFO)
 
@@ -23,6 +24,7 @@ app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 app.include_router(donors.router, prefix="/api")
 app.include_router(hopes.router, prefix="/api/hopes", tags=["Hopes / Donations"])
 app.include_router(schools.router)
+app.include_router(posts.router)
 
 @app.get("/")
 async def root():
